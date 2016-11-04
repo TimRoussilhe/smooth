@@ -1,0 +1,36 @@
+{
+	"name": "Smooth",
+	"version": "0.0.1",
+	"description": "Smooth plugin that allow all basic scroll interactions",
+	"main": "src/smooth.js",
+	"repository": {
+		"url": "git@github.com:TimRoussilhe/smooth.git",
+		"type": "git"
+	},
+	"author": "Tim Roussilhe <timothee.roussilhe@gmail.com>",
+	"license": "MIT",
+	"scripts": {
+		"build": "webpack --mode=build",
+		"dev": "webpack --progress --colors --watch --mode=dev",
+		"test": "mocha --compilers js:babel-core/register --colors -w ./test/*.spec.js",
+		"example:standalone": "live-server --open='./examples/standalone/'"
+	},
+	"devDependencies": {
+		"babel": "^6.5.2",
+		"babel-core": "^6.18.2",
+		"babel-eslint": "^7.1.0",
+		"babel-loader": "^6.2.7",
+		"babel-plugin-add-module-exports": "^0.2.1",
+		"babel-preset-es2015": "^6.18.0",
+		"eslint": "^3.9.1",
+		"eslint-loader": "^1.6.1",
+		"raf": "^3.3.0",
+		"vendor-prefix": "^0.1.0",
+		"webpack": "^1.13.3",
+		"yargs": "^6.3.0"
+	},
+	"dependencies": {
+		"eslint": "^3.9.1",
+		"eslint-loader": "^1.6.1"
+	}
+}
