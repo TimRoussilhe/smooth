@@ -1,9 +1,90 @@
-# smooth
-//DOC
+# Smooth
+---
+Custom library to handle scroll.
+There is 3 main role :
+- Wrapping a container ( usually the page ) and adding momemtum to it ( keeping the scrollbar )
+- Triggering scroll animation
+- Smooth Parallaxe
+    - For parallaxe the following prority are available :
+        - Translate
+        - Rotate
+        - Scale
+        - Opacity
 
-		Example of instanciation
+> The library works on mobile and support modern browser via autoprefix;
 
-		el : this.$decoration[0],
+## Documentation
+---
+### Init ( here you can see smoothContainer is set to true )
+```
+this.smooth = new Smooth({smoothContainer: true, smoothSection:this.el.querySelector('.scroll-wrapper')});
+this.smooth.init();
+```
+
+### Add Elements
+
+##Trigger example
+```
+for (let i = 0; i < elements.length; i++) {
+
+			var elementTrigger =
+				{
+					el : elements[i],
+
+					trigger :
+					{
+						start : 'in-viewport',
+						viewFactorStart : 0.6,
+						initialValues : [
+							{
+								animation : [
+									{
+										property : 'translate3d',
+										y : 20
+									}
+								]
+							},
+							{
+								animation: [{
+									property : 'opacity',
+									value: 0
+								}]
+							}
+						],
+						finalValues : [
+							{
+								delay : 200 * (i % 3),
+								duration : 800,
+								easing  : 'cubic-bezier(0.6, 0.2, 0.1, 1)',
+								animation : [
+									{
+										property : 'translate3d',
+										y : 0
+									}
+								]
+							},
+							{
+								delay : 200 * (i % 3),
+								duration : 800,
+								easing  : 'cubic-bezier(0.6, 0.2, 0.1, 1)',
+								animation: [{
+									property : 'opacity',
+									value: 1
+								}]
+							}
+						],
+						reset : true
+
+					}
+
+				};
+
+			this.smooth.addElement(elementTrigger);
+```
+
+##Paralaxe example
+```
+el : this.$decoration[0],
 				animations : [
 						{
 								transform : [
@@ -35,69 +116,40 @@
 								viewFactorEnd : 1
 						}
 				]
+```
 
-		so if in-viewport is true and viewfactor are zero it will be trigger when element appears and when element complitely dissaper
-		if viewFactor are 1 it will be whem it's totally in and will stop when reach end of windo viewport
+### Start
+```
+this.smooth.start();
+```
 
-		TRIGGER
+### Listener 
+You can pass listener if you don't want to use the one setup by smooth and use a global raq for example
+```
+{
+    setupListeners: 
+        update: false,
+        resize: false,
+        scroll: false
+}
+```
 
+### Reflow
+```
+tYou can use the lib situated here : src/smooth.js as a module
+Otherwise i setup a UMD wrapper via webpack to generate a standalone librabry ( you can build to get a nex one or use the one in the lib folder )
 
-				var elementTrigger =
-				{
-						el :event.detail,
+```
+Npm run dev
+```
+```
+Npm run build
+```
 
-						trigger :
-						{
-								start : 'in-viewport',
-								viewFactorStart : 0.3,
-								initialValues : [
-										{
-												animation : [
-														{
-																property : "translate3d",
-																y : -30
-														},
-														{
-																property : "scale3d",
-																both: 1.1
-														}
-												]
-										},
-										{
-												animation: [{
-														property : "opacity",
-														value: 0
-												}]
-										}
-								],
-								finalValues : [
-										{
-												delay : 0,
-												duration : 500,
-												easing  : 'cubic-bezier(0.6, 0.2, 0.1, 1)',
-												animation : [
-														{
-																property : "translate3d",
-																y : 0
-														},
-														{
-																property : "scale3d",
-																both: 1.0
-														}
-												]
-										},
-										{
-												delay : 0.0,
-												duration : 200,
-												easing  : 'cubic-bezier(0.6, 0.2, 0.1, 1)',
-												animation: [{
-														property : "opacity",
-														value: 1
-												}]
-										}
-								],
-								reset : true
-
-						}
-
-				};
+## Live Examples
+---
+[Alexandre Rochet Folio](http://eslint.org/)
+[Stink Studio](stinkstudios.com)
+[Volund](volund.ca)
+his.smooth.reflow();
+```
