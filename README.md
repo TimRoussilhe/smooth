@@ -147,7 +147,10 @@ Npm run build
 
 ## Live Examples
 ---
-[Alexandre Rochet Folio]: http://alexandrerochet.com
-[Stink Studio]: https://www.stinkstudios.com/
-[Volund]: http://volund.ca/
-[Andy H Wei]: http://andyweiart.com/
+[Alexandre Rochet Folio](http://alexandrerochet.com)
+
+[Stink Studio](https://www.stinkstudios.com/)
+
+[Volund](http://volund.ca/)
+
+[Andy H Wei](http://andyweiart.com/)
