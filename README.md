@@ -135,9 +135,9 @@ this.smooth.reflow();
 
 ### Notes
 
-```
 You can use the lib situated here : src/smooth.js as a module
-Otherwise i setup a UMD wrapper via webpack to generate a standalone librabry ( you can build to get a nex one or use the one in the lib folder )
+Otherwise I setup a UMD wrapper via webpack to generate a standalone librabry ( you can build to get a new one or use the one in the lib folder )
+
 ```
 Npm run dev
 ```
