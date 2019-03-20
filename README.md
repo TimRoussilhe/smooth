@@ -27,95 +27,87 @@ this.smooth.init();
 ```
 for (let i = 0; i < elements.length; i++) {
 
-			var elementTrigger =
-				{
-					el : elements[i],
+  var elementTrigger = {
+    el: elements[i],
 
-					trigger :
-					{
-						start : 'in-viewport',
-						viewFactorStart : 0.6,
-						initialValues : [
-							{
-								animation : [
-									{
-										property : 'translate3d',
-										y : 20
-									}
-								]
-							},
-							{
-								animation: [{
-									property : 'opacity',
-									value: 0
-								}]
-							}
-						],
-						finalValues : [
-							{
-								delay : 200 * (i % 3),
-								duration : 800,
-								easing  : 'cubic-bezier(0.6, 0.2, 0.1, 1)',
-								animation : [
-									{
-										property : 'translate3d',
-										y : 0
-									}
-								]
-							},
-							{
-								delay : 200 * (i % 3),
-								duration : 800,
-								easing  : 'cubic-bezier(0.6, 0.2, 0.1, 1)',
-								animation: [{
-									property : 'opacity',
-									value: 1
-								}]
-							}
-						],
-						reset : true
+    trigger: {
+      start: 'in-viewport',
+      viewFactorStart: 0.6,
+      initialValues: [{
+          animation: [{
+            property: 'translate3d',
+            y: 20
+          }]
+        },
+        {
+          animation: [{
+            property: 'opacity',
+            value: 0
+          }]
+        }
+      ],
+      finalValues: [{
+          delay: 200 * (i % 3),
+          duration: 800,
+          easing: 'cubic-bezier(0.6, 0.2, 0.1, 1)',
+          animation: [{
+            property: 'translate3d',
+            y: 0
+          }]
+        },
+        {
+          delay: 200 * (i % 3),
+          duration: 800,
+          easing: 'cubic-bezier(0.6, 0.2, 0.1, 1)',
+          animation: [{
+            property: 'opacity',
+            value: 1
+          }]
+        }
+      ],
+      reset: true
 
-					}
+    }
 
-				};
+  };
 
-			this.smooth.addElement(elementTrigger);
+  this.smooth.addElement(elementTrigger);
 ```
 
 ##Paralaxe example
 ```
-el : this.$decoration[0],
-				animations : [
-						{
-								transform : [
+var elementParallax = {
+  el: this.$domElement,
+  animations: [{
+    transform: [
 
-										{
-												start : 1700,
-												end : 2700,
-												initialValue : -100,
-												finalValue : 50,
-												transformType : 'translate3d',
-												axis : 'y',
-												ease : 0.2
+      {
+        start: 1700,
+        end: 2700,
+        initialValue: -100,
+        finalValue: 50,
+        transformType: 'translate3d',
+        axis: 'y',
+        ease: 0.2
 
-										}
-								]
+      }
+    ]
 
-						}
-				]
+  }]
 
-		animations : [
-						{
-								start : 'in-viewport',
-								end : 'out-viewport',
-								initialValue : 0,
-								finalValue : 1,
-								property : 'opacity',
-								ease : 0.1,
-								viewFactorStart : 0,
-								viewFactorEnd : 1
-						}
-				]
+  animations: [{
+    start: 'in-viewport',
+    end: 'out-viewport',
+    initialValue: 0,
+    finalValue: 1,
+    property: 'opacity',
+    ease: 0.1,
+    viewFactorStart: 0,
+    viewFactorEnd: 1
+  }]
+}
+this.smooth.addElement(elementParallax);
+
 ```
 
 ### Start
@@ -123,14 +115,15 @@ el : this.$decoration[0],
 this.smooth.start();
 ```
 
-### Listener 
+### Listener
 You can pass listener if you don't want to use the one setup by smooth and use a global raq for example
 ```
 {
-    setupListeners: 
-        update: false,
-        resize: false,
-        scroll: false
+  setupListeners: {
+    update: false,
+    resize: false,
+    scroll: false
+  }
 }
 ```
 
@@ -148,8 +141,7 @@ Npm run build
 
 ## Live Examples
 ---
-[Alexandre Rochet Folio](http://eslint.org/)
-[Stink Studio](stinkstudios.com)
-[Volund](volund.ca)
-his.smooth.reflow();
+[Alexandre Rochet Folio](http://alexandrerochet.com)
+[Stink Studio](http://stinkstudios.com)
+[Volund](http://volund.ca)
 ```
