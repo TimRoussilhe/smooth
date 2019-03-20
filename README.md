@@ -128,10 +128,16 @@ You can pass listener if you don't want to use the one setup by smooth and use a
 ```
 
 ### Reflow
-```
-tYou can use the lib situated here : src/smooth.js as a module
-Otherwise i setup a UMD wrapper via webpack to generate a standalone librabry ( you can build to get a nex one or use the one in the lib folder )
 
+```
+this.smooth.reflow();
+```
+
+### Notes
+
+```
+You can use the lib situated here : src/smooth.js as a module
+Otherwise i setup a UMD wrapper via webpack to generate a standalone librabry ( you can build to get a nex one or use the one in the lib folder )
 ```
 Npm run dev
 ```
@@ -141,7 +147,8 @@ Npm run build
 
 ## Live Examples
 ---
-[Alexandre Rochet Folio](http://alexandrerochet.com)
-[Stink Studio](http://stinkstudios.com)
-[Volund](http://volund.ca)
+[Alexandre Rochet Folio]: http://alexandrerochet.com
+[Stink Studio]: https://www.stinkstudios.com/
+[Volund]: http://volund.ca/
+[Andy H Wei]: http://andyweiart.com/
 ```
