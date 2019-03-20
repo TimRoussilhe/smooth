@@ -151,4 +151,3 @@ Npm run build
 [Stink Studio]: https://www.stinkstudios.com/
 [Volund]: http://volund.ca/
 [Andy H Wei]: http://andyweiart.com/
-```
