@@ -1,0 +1,30 @@
+.main {
+  /* Reference an image file */
+  /* background: url('./images/background.png'); */
+  color: red;
+}
+html{
+	height: 100%;
+	overflow: hidden;
+	overflow-y: auto;
+	overscroll-behavior: none;
+}
+body{
+	background: blue;
+}
+
+.background{
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 1920px;
+	height: 9154px;
+	z-index: 0;
+}
+
+.section--overlay{
+	position: relative;
+	z-index: 1;
+}
+
+/*# sourceMappingURL=/global.e31bb0bc.css.map */
