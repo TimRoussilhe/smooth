@@ -24,23 +24,16 @@ There is 3 main things that Smooth can take care of for you :
 <!DOCTYPE html>
 
 <html lang="en">
-
-<head>
-
-<title>Title</title>
-
-</head>
-<body>
-
-<main id="content">
-
-<section class="page-wrapper">...</section>
-
-</main>
-
-</body>
-
+  <head>
+    <title>Title</title>
+  </head>
+  <body>
+    <main id="content">
+      <section class="page-wrapper">...</section>
+    </main>
+  </body>
 </html>
+
 ```
 
 ### Javascript
@@ -64,67 +57,39 @@ this.smooth.start();
 
 #### Add Scroll Elements
 ```
-//Parallaxe
 const elementParallax = {
+  el: document.querySelector('.scroll-wrapper'),
 
-el: document.querySelector('.scroll-wrapper'),
-
-parallax: [
-
-{
-
-start: 0,
-
-end: 500,
-
-properties: [['translateY', 0, 250]],
-
-easing: 'easeInOutCubic',
-
-viewFactorStart: 0,
-
-viewFactorEnd: 0,
-
-},
-
-],
-
+  parallax: [
+    {
+      start: 0,
+      end: 500,
+      properties: [['translateY', 0, 250]],
+      easing: 'easeInOutCubic',
+      viewFactorStart: 0,
+      viewFactorEnd: 0,
+    },
+  ],
 };
-
-  
 
 const $footer = document.querySelector('footer');
 
 const elementTrigger = {
+  el: $footer,
 
-el: $footer,
-
-trigger: {
-
-start: 'in-viewport',
-
-end: 'out-viewport',
-
-viewFactorStart: 0,
-
-viewFactorEnd: 0,
-
-callback: (before) => {
-
-if (before === 0) {
-
-$footer.classList.add('footer--in');
-
-} else if (before === -1) {
-
-$footer.classList.remove('footer--in');
-
-}
-
-},
-
-},
-
+  trigger: {
+    start: 'in-viewport',
+    end: 'out-viewport',
+    viewFactorStart: 0,
+    viewFactorEnd: 0,
+    callback: (before) => {
+      if (before === 0) {
+        $footer.classList.add('footer--in');
+      } else if (before === -1) {
+        $footer.classList.remove('footer--in');
+      }
+    },
+  },
 };
 this.smooth.addElements([elementParallax, elementTrigger]);
 ```
