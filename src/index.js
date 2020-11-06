@@ -1,7 +1,7 @@
 /*!
  * Make everything smooth like butter when you scroll
  *
- * Version : 2.0.0
+ * Version : 0.2.0
  *
  * Website : coming soon
  * Repo    : https://github.com/TimRoussilhe/smooth
