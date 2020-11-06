@@ -1,0 +1,80 @@
+html {
+  box-sizing: border-box;
+  font-size: 16px;
+}
+
+*,
+*:before,
+*:after {
+  box-sizing: inherit;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+ol,
+ul {
+  margin: 0;
+  padding: 0;
+  font-weight: normal;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+html {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol';
+}
+
+h1 {
+  font-size: 120px;
+}
+
+.image-wrapper {
+  position: relative;
+  width: 800px;
+
+  &:before {
+    display: block;
+    content: '';
+    width: 100%;
+    padding-top: (1067/800) * 100%;
+  }
+  > img {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.scrollbar-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 100%;
+  background-color: rgba($color: #000000, $alpha: 0.1);
+
+  .scrollbar-thumb {
+    display: block;
+    width: 100%;
+    background-color: black;
+  }
+}

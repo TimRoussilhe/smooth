@@ -1,777 +1,746 @@
-/*!
- * Make everything smooth like butter when you scroll
+import Scroll from './Scroll';
+import Scrollbar from './ScrollBar';
+import { EasingFunctions } from './utils';
+
+/**
+ * Smooth main controller.
  *
- * Version : 2.0.0
- * Website : coming soon
- * Repo    : https://github.com/TimRoussilhe/smooth
- * Author  : Tim Roussilhe (@timroussilhe)
- *
- * Free to use under terms of MIT license
+ * This allows you to create a scroll wrapper for your page
+ * and also to add elements to the main scroll logic
+ * @constructor
  */
 
 class Smooth {
-  constructor() {
-    var opts = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+  constructor(props) {
+    this.scrollElement = props.scrollElement;
+    this.scrollbarElement = props.scrollbarElement;
+    this.scrollOptions = props.scrollOptions;
+    this.scrollbarOptions = props.scrollbarOptions;
+    this.direction = props.scrollOptions.direction || 'vertical';
 
-    this.handlers = {
-      run: null,
-      debounce: null,
-      resize: null
-    };
+    this.elements = [];
+    this.sections = [];
+    this.frame = -1;
+    this.initScroll();
+    this.isEnabled = true;
+    this.needRounding = false;
+  }
 
-    this.setupListeners = {
-      resize: opts.setupListeners !== undefined && opts.setupListeners.resize !== undefined ? opts.setupListeners.resize : true,
-      scroll: opts.setupListeners !== undefined && opts.setupListeners.scroll !== undefined ? opts.setupListeners.scroll : true,
-      update: opts.setupListeners !== undefined && opts.setupListeners.update !== undefined ? opts.setupListeners.update : true
-    };
-
-    this.perfs = {
-      now: null,
-      last: null
-    };
-
-    this.vars = {
-      preload: opts.preload || false,
-      current: 0,
-      target: 0,
-      height: 0,
-      documentHeight: 0,
-      bounding: 0,
-      timer: null,
-      ticking: false
-    };
-
-    // pony trick here, we remove easing on frist frame to avoid ucking flash or blink or big scroll
-    this.firstFrame = true;
-
-    this.ticketScroll = false;
-
-    this.smoothContainer = opts.smoothContainer;
-
-    if (this.smoothContainer) {
-      this.smoothSection = {
-        el: opts.smoothSection ? opts.smoothSection : document.body,
-        animation: {
-          transform: [
-            {
-              transformType: 'translate3d',
-              axis: 'y',
-              ease: 0.12,
-              initialValue: 0
-            }
-          ]
-        }
-      };
+  initScroll() {
+    if (this.scrollbarElement) {
+      this.scrollBar = new Scrollbar(this.scrollbarElement, this.scrollbarOptions);
     }
 
-    // lister is use for smooth scrolling container
-    this.dom = document.body;
-    this.fakeDiv = null;
-
-    this.elementsParallaxe = [];
-    this.elementsTrigger = [];
-    this.isDisabled = false;
-
-    this.resize();
-  }
-
-  init() {
-    this.vars.preload && this.preloadImages();
-    this.addEvents();
-    !this.vars.preload && this.resize();
-  }
-
-  start() {
-    this.reflow();
-    if (this.setupListeners.update) this.raf = window.requestAnimationFrame(this.handlers.run);
+    this.scroll = new Scroll({
+      scrollElement: this.scrollElement,
+      scrollbar: this.scrollBar,
+      ...this.scrollOptions,
+    });
   }
 
   addElement(element, reflow = true) {
-    if (!element.el) return false;
-
-    if (element.animations !== undefined) {
-      this.elementsParallaxe.push(element);
+    if (!element.el && element.parallax !== undefined) {
+      console.error('DOM element non valid: ' + element);
     }
 
-    if (element.trigger !== undefined) {
-      element.triggered = false;
-      this.elementsTrigger.push(element);
+    if (element.trigger && typeof element.trigger.callback !== 'function') {
+      console.error('Trigger callback is not a function', element);
     }
+
+    this.createElement(element);
 
     if (reflow) this.reflow();
   }
 
   addElements(elements) {
-    for (var i = 0; i < elements.length; i++) {
+    // in case we pass a single object here instead of an array
+    if (!Array.isArray(elements) && this.isObject(elements)) {
+      elements = [elements];
+    }
+
+    for (let i = 0; i < elements.length; i++) {
       this.addElement(elements[i], false);
     }
 
     this.reflow();
   }
 
-  resetElement(element, reflow = true) {
-    let match = null;
-    for (let i = 0; i < this.elementsParallaxe.length; i++) {
-      let current = this.elementsParallaxe[i];
-      if (current.el === element.el) {
-        match = { index: i, element: current };
-      }
+  addSections(sections) {
+    // in case we pass a single object here instead of an array
+    if (!Array.isArray(sections) && this.isObject(sections)) {
+      sections = [sections];
     }
 
-    if (match !== null) {
-      this.elementsParallaxe.splice(match.index, 1);
-      this.addElement(match.element, reflow);
-    }
-  }
-
-  // In case we wanna add dynamic value from the instaciation of the parent resize
-  resetElements(elements) {
-    console.log('elements', elements);
-    console.log('elements instanceof Array', elements instanceof Array);
-
-    // MAKE SURE elements is an array and not a single object
-    if (elements instanceof Array === false) {
-      elements = [elements]; // we could also just call addElement here i guess
-    }
-
-    this.elementsParallaxe = [];
-    this.elementsTrigger = [];
-
-    this.addElements(elements);
+    this.sections = sections.map((section) => this.createSection(section));
     this.reflow();
   }
 
-  // If an object as several transform we need extra work ( thanks you css !)
-  setTransformSequence(animation) {
-    animation.startValue = this.findStart(animation.transform);
-    animation.endValue = this.findEnd(animation.transform);
+  createElement(element) {
+    this.elements.push(element);
   }
 
-  preloadImages() {
-    var images = Array.prototype.slice.call(this.dom.querySelectorAll('img'), 0);
-
-    images.forEach(
-      function(image) {
-        var img = new Image();
-
-        img.onload = function(el) {
-          images.splice(images.indexOf(image), 1);
-          images.length === 0 && this.resize();
-        }.bind(this);
-
-        img.src = image.getAttribute('src');
-      }.bind(this)
-    );
+  // section Schema
+  // TODO: Refactor all schema to be better documented
+  createSection(section) {
+    return {
+      el: section.el,
+      section: {
+        start: 'in-viewport',
+        end: 'out-viewport',
+        properties: [['translateY', 0, 0]],
+        viewFactorStart: 0,
+        viewFactorEnd: 0,
+        edge: null,
+        done: false,
+      },
+    };
   }
 
-  debounce() {
-    this.ticketScroll = true;
-  }
-
-  addScrollingClass() {
-    clearTimeout(this.vars.timer);
-    if (!this.vars.ticking) {
-      this.vars.ticking = true;
-      // this.perfs.now = Date.now();
-      // this.dom.classList.add('is-scrolling');
-      this.dom.style.pointerEvents = 'none';
+  start() {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
     }
+    window.scrollTo(0, 0);
 
-    this.vars.timer = setTimeout(() => {
-      this.vars.ticking = false;
-      // this.dom.classList.remove('is-scrolling');
-      this.dom.style.pointerEvents = 'auto';
-    }, 300);
-  }
-
-  addScrollingClassHandler() {
-    this.vars.ticking = false;
-    // this.dom.classList.remove('is-scrolling');
-    this.dom.style.pointerEvents = 'auto';
+    this.run();
   }
 
   run() {
-    if (this.isDisabled) {
-      return false;
-    }
+    const frame = this.scroll.y;
 
-    if (this.ticketScroll) {
-      this.vars.target = window.scrollY || window.pageYOffset;
-      // this.addScrollingClass();
-      this.ticketScroll = false;
-    }
+    if (this.frame !== frame && frame >= 0 && this.isEnabled) {
+      let i = 0;
+      if (this.frame !== -1) {
+        this.needRounding = true;
+      }
 
-    // this.vars.current += (this.vars.target - this.vars.current) * this.vars.ease;
-    this.vars.current = this.vars.target;
+      for (; i < this.elements.length; i++) {
+        let j = 0;
+        const currentElement = this.elements[i];
+        let activeParallax = [];
 
-    // USELESS
-    // this.vars.current < .1 && (this.vars.current = 0);
+        if (currentElement.parallax) {
+          for (; j < currentElement.parallax.length; j++) {
+            let animation = currentElement.parallax[j];
+            // adding <= so first frame can also be unactive if === 0
+            let before = frame <= animation.startValue;
+            let after = frame > animation.endValue;
 
-    // If we are having a global smooth container
-    // Animate it following scroll position of dom
-    if (this.smoothContainer) this.updatesmoothContainer(this.vars.current === this.vars.old);
+            // create a new array to catch all properties related to the same el
+            // animation.properties = [];
 
-    // Still not sure why i pass frame here since we register this globaly...
-    this.updateParallaxeElements(this.vars.current, this.vars.current === this.vars.old);
-    if (this.vars.current !== this.vars.old) this.checkTriggerElements(this.vars.current);
+            // If we are before/after the first/`last frame, set the styles according first/last value.
+            if (before || after) {
+              // we are at first or last and already setStyle to reach initial/final Value
+              if ((before && animation.edge === -1) || (after && animation.edge === 1) || (after && before)) {
+                // if (animation.done) continue;
+                continue;
+              }
 
-    this.vars.old = this.vars.current;
+              // edge case, in case frame goes from before to after in a single frame
+              // TODO: explore done, and also check this for other cases
+              if ((animation.edge === -1 && after) || (animation.edge === 1 && before)) {
+                animation.done = false;
+              }
+              animation.edge = before ? -1 : 1;
+              // animation.active = true;
 
-    this.raf = window.requestAnimationFrame(this.handlers.run);
-  }
+              this.setProgress(animation, before ? 0 : 1);
+              // this.draw(currentElement);
+              activeParallax.push(currentElement);
 
-  updatesmoothContainer(notScrolling) {
-    if (!this.smoothSection.animation.transform[0].done || !notScrolling) {
-      this.smoothSection.animation.properties = [];
-      // so far we only allow one transform on the body (x or y)
-      this.computeTransformStyle(this.smoothSection.animation, this.smoothSection.animation.transform[0], -this.vars.current);
+              // this goes later now
+              // animation.done = true;
 
-      this.setStyle(this.smoothSection.el, this.smoothSection.animation.properties);
-    }
-  }
+              continue;
+            } else {
+              // if (animation.done && animation.edge === 0 && notScrolling) continue;
+              if (animation.done && animation.edge === 0) continue;
 
-  /**
-   * Update all Elements
-   * Edge Management
-   */
-  updateParallaxeElements(frame, notScrolling) {
-    var index = 0;
-    for (; index < this.elementsParallaxe.length; index++) {
-      var element = this.elementsParallaxe[index];
-      // var properties = [];
+              animation.edge = 0;
+              animation.done = false;
+              this.updateElementProgress(animation, frame);
 
-      for (var j = 0; j < element.animations.length; j++) {
-        var animation = element.animations[j];
-        var before = frame < animation.startValue;
-        var after = frame > animation.endValue;
+              // this.draw(currentElement);
+              activeParallax.push(currentElement);
+            }
+          }
+        }
 
-        // create a new array to catch all properties related to the same el
-        animation.properties = [];
+        if (currentElement.trigger) {
+          let animation = currentElement.trigger;
+          // adding <= so first frame can also be unactive if === 0
+          let before = frame < animation.startValue;
+          let after = frame > animation.endValue;
+
+          // create a new array to catch all properties related to the same el
+          // animation.properties = [];
+
+          // If we are before/after the first/`last frame, set the styles according first/last value.
+          if (before || after) {
+            // we are at fisrt or last and already setStyle to reach initial/final Value
+            if (
+              (before && animation.edge === -1) ||
+              (after && animation.edge === 1) ||
+              (after && before) ||
+              animation.done
+            ) {
+              // if (animation.done) continue;
+              continue;
+            }
+
+            animation.edge = before ? -1 : 1;
+            animation.callback(before ? -1 : 1, currentElement);
+
+            continue;
+          } else {
+            // if (animation.done && animation.edge === 0 && notScrolling) continue;
+            if (animation.done && animation.edge === 0) continue;
+            if (animation.edge !== 0) animation.callback(0, currentElement);
+            animation.edge = 0;
+            if (animation.repeat === false) animation.done = true;
+          }
+        }
+
+        if (currentElement.timeline) {
+          let animation = currentElement.timeline;
+          // adding <= so first frame can also be unactive if === 0
+          let before = frame < animation.startValue;
+          let after = frame > animation.endValue;
+
+          // create a new array to catch all properties related to the same el
+          // animation.properties = [];
+
+          // If we are before/after the first/`last frame, set the styles according first/last value.
+          if (before || after) {
+            // we are at first or last and already setStyle to reach initial/final Value
+            if (
+              (before && animation.edge === -1) ||
+              (after && animation.edge === 1) ||
+              (after && before) ||
+              animation.done
+            ) {
+              // if (animation.done) continue;
+              continue;
+            }
+
+            animation.edge = before ? -1 : 1;
+            const progress = before ? 0 : 1;
+            animation.timeline.progress(progress);
+
+            continue;
+          } else {
+            this.updateElementProgress(animation, frame);
+            animation.timeline.progress(animation.progress);
+
+            // animation.timeline.progress(animation.progress);
+            animation.edge = 0;
+          }
+        }
+
+        // TODO: actually at the end i should go trough the state and see if the element need to be drawn!
+        if (activeParallax.length > 0) {
+          this.draw(currentElement);
+        }
+      }
+
+      for (let i = 0; i < this.sections.length; i++) {
+        const currentSectionElement = this.sections[i];
+        const currentSection = this.sections[i].section;
+
+        // adding <= so first frame can also be unactive if === 0
+        let before = frame <= currentSection.startValue;
+        let after = frame > currentSection.endValue;
 
         // If we are before/after the first/`last frame, set the styles according first/last value.
         if (before || after) {
-          // we are at firt or last and allready setStyle to reach initial/final Value
-          if ((before && animation.edge === -1) || (after && animation.edge === 1)) {
-            if (animation.done) continue;
+          // we are at first or last and already setStyle to reach initial/final Value
+          if ((before && currentSection.edge === -1) || (after && currentSection.edge === 1) || (after && before)) {
+            // if (animation.done) continue;
+            continue;
           }
 
-          animation.edge = before ? -1 : 1;
-
-          if (animation.transform) {
-            // We need to check that all subAnimation are done so we use this as a flag
-            let transformDone = true;
-
-            for (let indexTransform = 0; indexTransform < animation.transform.length; indexTransform++) {
-              let transformAnimation = animation.transform[indexTransform];
-              this.computeTransformStyle(animation, transformAnimation, animation.edge === -1 ? transformAnimation.initialValue : transformAnimation.finalValue);
-              if (transformAnimation.done === false) transformDone = false;
-            }
-
-            // no we check the flag
-            // if one of the subAnimation is not done the flag will be false
-            // if all done then the main animation is done
-            if (transformDone === true) {
-              animation.done = true;
-            } else {
-              animation.done = false;
-            }
-          } else {
-            this.computeClassicStyle(animation, animation.edge === -1 ? animation.initialValue : animation.finalValue);
+          // edge case, in case frame goes from before to after in a single frame
+          // TODO: explore done, and also check this for other cases
+          if ((currentSection.edge === -1 && after) || (currentSection.edge === 1 && before)) {
+            currentSection.done = false;
           }
 
-          // now we have array of properties we gonna parse them and apply them
-          if (animation.properties.length > 0) this.setStyle(element.el, animation.properties);
+          if ((currentSection.edge !== -1 && before) || (currentSection.edge !== 1 && after)) {
+            if (before && frame !== currentSection.startValue) {
+              currentSectionElement.el.style.opacity = 0;
+              currentSectionElement.el.style.pointerEvents = 'none';
+            }
+          }
+
+          currentSection.edge = before ? -1 : 1;
+          // animation.active = true;
+          this.setProgress(currentSection, before ? 0 : 1);
+          this.drawSection(currentSectionElement);
 
           continue;
         } else {
-          if (animation.done && animation.edge === 0 && notScrolling) continue;
-          animation.edge = 0;
+          if (currentSection.done && currentSection.edge === 0) continue;
+          if (currentSection.edge !== 0) {
+            currentSectionElement.el.style.removeProperty('opacity');
+            currentSectionElement.el.style.removeProperty('pointer-events');
+          }
 
-          // We need to check that all subAnimation are done so we use this as a flag
-          var transformDone = true;
+          currentSection.edge = 0;
+          currentSection.done = false;
+          this.updateElementProgress(currentSection, frame);
+          this.drawSection(currentSectionElement);
+        }
+      }
+    } else {
+      if (this.frame === frame) {
+        if (this.needRounding === true) {
+          this.needRounding = false;
 
-          if (animation.transform) {
-            for (let indexTransform = 0; indexTransform < animation.transform.length; indexTransform++) {
-              let transformAnimation = animation.transform[indexTransform];
+          for (let i = 0; i < this.elements.length; i++) {
+            const currentElement = this.elements[i];
 
-              // Cap progress between 0 and 1 ( Mostly because of transform sequences )
-              let progress = Math.min(Math.max((frame - transformAnimation.startValue) / (transformAnimation.endValue - transformAnimation.startValue), 0), 1);
-              // TODO: ADD EASING
-              // progress = left.props[key].easing(progress);
-              let currentValue = transformAnimation.initialValue + (transformAnimation.finalValue - transformAnimation.initialValue) * progress;
-              this.computeTransformStyle(animation, transformAnimation, currentValue);
-              if (transformAnimation.done === false) transformDone = false;
+            const activeStyles = [];
+            if (currentElement.parallax) {
+              for (let j = 0; j < currentElement.parallax.length; j++) {
+                const currentParallax = currentElement.parallax[j];
+                if (currentParallax.done === false) {
+                  for (let k = 0; k < currentParallax.properties.length; k++) {
+                    let current = currentParallax.properties[k];
+                    const style = this.getStyleValue(current, currentParallax.progress);
+                    activeStyles.push(style);
+                  }
+                }
+              }
+
+              if (activeStyles.length > 0) this.applyStyle(currentElement, activeStyles, true);
             }
+          }
 
-            // no we check the flag
-            // if one of the subAnimation is not done the flag will be false
-            // if all done then the main animation is done
-            if (transformDone === true) {
-              animation.done = true;
+          for (let i = 0; i < this.sections.length; i++) {
+            const element = this.sections[i];
+            const section = element.section;
+            if (section.done === false) {
+              const sectionAnimation = section.properties[0];
+              const style = this.getStyleValue(sectionAnimation, section.progress);
+              this.applyStyle(element, [style], true);
+            }
+          }
+        }
+      }
+    }
+
+    this.frame = frame;
+    this.raf = window.requestAnimationFrame(() => this.run());
+  }
+
+  // this is where the magic happens = the brain
+  // get styles and apply them of one element at instant T
+  draw(element) {
+    // need to go trough all the parallax
+    // see if there is any active progress
+    // we need to check progress and animationDone somehow
+    // when we have it all we need to apply it all at once
+    let i = 0;
+    const activeStyles = [];
+    for (; i < element.parallax.length; i++) {
+      const currentParallax = element.parallax[i];
+      if (currentParallax.done === false) {
+        for (let j = 0; j < currentParallax.properties.length; j++) {
+          let current = currentParallax.properties[j];
+          const style = this.getStyleValue(current, currentParallax.progress);
+          activeStyles.push(style);
+        }
+
+        // apply the done attributes here now that the draw call is "async"
+        if (
+          (currentParallax.progress <= 0 && currentParallax.edge === -1) ||
+          (currentParallax.progress >= 1 && currentParallax.edge === 1)
+        ) {
+          currentParallax.done = true;
+        }
+      }
+    }
+
+    if (activeStyles.length > 0) this.applyStyle(element, activeStyles);
+  }
+
+  // this is where the magic happens = the brain
+  // get styles and apply them of one element at instant T
+  drawSection(sectionElement) {
+    const section = sectionElement.section;
+    // need to go trough all the parallax
+    // see if there is any active progress
+    // we need to check progress and animationDone somehow
+    // when we have it all we need to apply it all at once
+    if (section.done === false) {
+      const sectionAnimation = section.properties[0];
+      const style = this.getStyleValue(sectionAnimation, section.progress);
+      // apply the done attributes here now that the draw call is "async"
+      if ((section.progress <= 0 && section.edge === -1) || (section.progress >= 1 && section.edge === 1)) {
+        section.done = true;
+      }
+
+      this.applyStyle(sectionElement, [style]);
+    }
+  }
+
+  getStyleValue(property, progress) {
+    const type = property[0];
+    const start = property[1];
+    const end = property[2];
+
+    const value = start + (end - start) * progress;
+    return [type, this.roundNumber(value, 3)];
+  }
+
+  applyStyle(element, styles, roundValue = false) {
+    let opacity = this._getOpacity(styles);
+    let transform = this._getTransform(styles, roundValue);
+
+    if (opacity !== null) {
+      element.el.style.opacity = opacity;
+    }
+
+    let translate;
+    let scale;
+    let skew;
+    let rotate;
+
+    // maybe improve this part to check for empty object, but i feel this is faster.
+    if (transform.translate !== undefined) {
+      translate = `translate3d(${transform.translate.x ? transform.translate.x : 0}px, ${
+        transform.translate.y ? transform.translate.y : 0
+      }px, ${transform.translate.z ? transform.translate.z : 0}px)`;
+    }
+
+    if (transform.scale !== undefined) {
+      scale = `scale3d(${transform.scale.x ? transform.scale.x : 1}, ${transform.scale.y ? transform.scale.y : 1}, 1)`;
+    }
+
+    if (transform.rotate !== undefined) {
+      rotate = `rotate(${transform.rotate}deg`;
+    }
+
+    if (transform.skew !== undefined) {
+      skew = `skew(${transform.skew.x ? transform.skew.x : 0}deg, ${transform.skew.y ? transform.skew.y : 0}deg)`;
+    }
+
+    const style = `${
+      (translate ? translate + ' ' : '') +
+      (scale ? scale + ' ' : '') +
+      (skew ? skew + ' ' : '') +
+      (rotate ? rotate + ' ' : '')
+    }`;
+    element.el.style.transform = style;
+  }
+
+  // Parses the transform values for an element, returning an object with x, y, z, scaleX, scaleY, scaleZ, rotation, rotationX, rotationY, skewX, and skewY properties.
+  // TODO : so far if a value is getting applied twice, it's the latest in the array who win. See if i want to do something about this
+  _getTransform(styles, roundValue = false) {
+    let transform = {};
+
+    for (let i = 0; i < styles.length; i++) {
+      let currentStyle = styles[i];
+      const styleType = currentStyle[0];
+      let styleValue = currentStyle[1];
+
+      if (styleType === 'translateX') {
+        styleValue = !roundValue ? currentStyle[1] : Math.round(currentStyle[1]);
+        transform.translate ? (transform.translate.x = styleValue) : (transform.translate = { x: styleValue });
+      }
+      if (styleType === 'translateY') {
+        styleValue = !roundValue ? currentStyle[1] : Math.round(currentStyle[1]);
+        transform.translate ? (transform.translate.y = styleValue) : (transform.translate = { y: styleValue });
+      }
+      if (styleType === 'translateZ') {
+        styleValue = !roundValue ? currentStyle[1] : Math.round(currentStyle[1]);
+        transform.translate ? (transform.translate.z = styleValue) : (transform.translate = { z: styleValue });
+      }
+      if (styleType === 'scale') {
+        transform.scale ? (transform.scale.x = styleValue) : (transform.scale = { x: styleValue });
+        transform.scale ? (transform.scale.y = styleValue) : (transform.scale = { y: styleValue });
+      }
+      if (styleType === 'scaleX') {
+        transform.scale ? (transform.scale.x = styleValue) : (transform.scale = { x: styleValue });
+      }
+      if (styleType === 'scaleY') {
+        transform.scale ? (transform.scale.y = styleValue) : (transform.scale = { y: styleValue });
+      }
+      if (styleType === 'rotate') {
+        transform.rotate = styleValue;
+      }
+      if (styleType === 'skew') {
+        transform.skew ? (transform.skew.x = styleValue) : (transform.skew = { x: styleValue });
+        transform.skew ? (transform.skew.y = styleValue) : (transform.skew = { y: styleValue });
+      }
+      if (styleType === 'skewX') {
+        transform.skew ? (transform.skew.x = styleValue) : (transform.skew = { x: styleValue });
+      }
+      if (styleType === 'skewY') {
+        transform.skew ? (transform.skew.y = styleValue) : (transform.skew = { y: styleValue });
+      }
+    }
+
+    return transform;
+  }
+
+  // Parses the opacity value for an element, returning an object opacity;
+  _getOpacity(styles) {
+    let opacity = null;
+
+    for (let i = 0; i < styles.length; i++) {
+      if (styles[i][0] === 'opacity') opacity = styles[i][1];
+    }
+    return opacity;
+  }
+
+  updateElementProgress(element, target) {
+    let oldProgress = element.progress;
+    let progress = Math.min(Math.max((target - element.startValue) / (element.endValue - element.startValue), 0), 1);
+    this.setProgress(element, progress);
+
+    return oldProgress === progress;
+  }
+
+  setProgress(element, progressValue) {
+    let progress = progressValue;
+    if (element.ease && EasingFunctions[element.ease]) {
+      progress = EasingFunctions[element.ease](progressValue);
+    }
+    element.progress = progress;
+  }
+
+  reflow() {
+    let i = 0;
+    for (; i < this.elements.length; i++) {
+      let j = 0;
+      const element = this.elements[i];
+
+      if (element.parallax) {
+        for (; j < element.parallax.length; j++) {
+          const currentParallax = element.parallax[j];
+
+          currentParallax.startValue = +this.getPosition('start', element.el, currentParallax);
+          currentParallax.endValue = +this.getPosition('end', element.el, currentParallax);
+
+          currentParallax.edge = null;
+          currentParallax.done = false;
+        }
+      }
+
+      if (element.trigger) {
+        element.trigger.startValue = +this.getPosition('start', element.el, element.trigger);
+        element.trigger.endValue = +this.getPosition('end', element.el, element.trigger);
+
+        element.trigger.edge = null;
+        element.trigger.done = false;
+      }
+
+      if (element.timeline) {
+        element.timeline.startValue = +this.getPosition('start', element.el, element.timeline);
+        element.timeline.endValue = +this.getPosition('end', element.el, element.timeline);
+
+        element.timeline.edge = null;
+        element.timeline.done = false;
+      }
+    }
+
+    for (let i = 0; i < this.sections.length; i++) {
+      const section = this.sections[i];
+      const sectionAnimation = this.sections[i].section;
+      // update animation
+      sectionAnimation.properties[0][2] = -window.innerHeight - section.el.offsetHeight;
+
+      sectionAnimation.edge = null;
+      sectionAnimation.done = false;
+
+      sectionAnimation.startValue = +this.getPosition('start', section.el, sectionAnimation);
+      sectionAnimation.endValue = +this.getPosition('end', section.el, sectionAnimation);
+
+      if (sectionAnimation.startValue <= 0) {
+        sectionAnimation.properties[0][2] = -this.getOffset(section.el) - section.el.offsetHeight;
+      }
+
+      if (sectionAnimation.endValue >= this.scroll.maxHeight - 1) {
+        const positionEndWithoutBounds = +this.getPosition('end', section.el, sectionAnimation, false);
+        const scrollDifference = positionEndWithoutBounds - sectionAnimation.endValue;
+        sectionAnimation.properties[0][2] += this.roundNumber(scrollDifference, 2);
+      }
+
+      // adding extra 100 pixels up and down when possible
+      if (sectionAnimation.startValue > 0) {
+        sectionAnimation.startValue -= 100;
+        sectionAnimation.properties[0][1] += 100;
+      }
+      if (sectionAnimation.endValue <= this.scroll.maxHeight - 1) {
+        sectionAnimation.endValue += 100;
+        sectionAnimation.properties[0][2] -= 100;
+      }
+
+      sectionAnimation.properties[0][1] -= sectionAnimation.startValue;
+      sectionAnimation.properties[0][2] -= sectionAnimation.startValue;
+    }
+
+    this.frame = -1;
+  }
+
+  // getOffset(el) {
+  // 	const bodyRect = this.scroll.dom.getBoundingClientRect();
+
+  // 	el.style.webkitTransform = null;
+  // 	el.style.mozTransform = null;
+  // 	el.style.msTransform = null;
+  // 	el.style.transform = null;
+  // 	const elemRect = el.getBoundingClientRect();
+
+  // 	let offset = elemRect.top - bodyRect.top;
+  // 	if (this.direction === 'horizontal') {
+  // 		offset = elemRect.left - bodyRect.left;
+  // 	}
+
+  // 	return Math.floor(offset);
+  // }
+
+  getOffset(element) {
+    let el = element;
+    // let offsetLeft = 0;
+    let offsetTop = 0;
+
+    do {
+      // offsetLeft += el.offsetLeft;
+      offsetTop += el.offsetTop;
+
+      el = el.offsetParent;
+    } while (el);
+
+    return Math.floor(offsetTop);
+  }
+
+  getPosition(coordinates, el, animation, useBounds = true) {
+    // check if the animation.start or animation.end is using the `viewport` keyword instead of absolute value
+    const viewportKey = animation[coordinates] || false;
+    if (viewportKey === 'in-viewport' || viewportKey === 'out-viewport') {
+      return this.getPositionBasedOnViewport(coordinates, el, animation, useBounds);
+    }
+
+    // return the absolute position value coming from parent
+    // TODO: add viewFactor here too
+    const positionValue = coordinates === 'start' ? animation.start : animation.end;
+    return this.roundNumber(positionValue, 2);
+  }
+
+  getPositionBasedOnViewport(coordinates, el, animation, useBounds = true) {
+    // be sure we remove old style
+    el.style.webkitTransform = null;
+    el.style.mozTransform = null;
+    el.style.msTransform = null;
+    el.style.transform = null;
+
+    const elementOffset = animation.offsetParent || el;
+    const offset = this.getOffset(elementOffset);
+
+    let elementHeight;
+    let windowHeight;
+    if (this.direction === 'horizontal') {
+      elementHeight = el.offsetWidth;
+      windowHeight = window.innerWidth;
+    } else {
+      elementHeight = el.offsetHeight;
+      windowHeight = window.innerHeight;
+    }
+
+    const factor =
+      coordinates === 'start'
+        ? (animation.viewFactorStart && animation.viewFactorStart) || 0
+        : (animation.viewFactorEnd && animation.viewFactorEnd) || 0;
+
+    const viewportKey = animation[coordinates];
+    let positionValue;
+    if (viewportKey === 'in-viewport') {
+      positionValue = offset - windowHeight;
+    } else if (viewportKey === 'out-viewport') {
+      positionValue = offset + elementHeight;
+    }
+
+    // viewFactor is a pixel value
+    if (isNaN(factor) && factor.indexOf('px') !== -1) {
+      positionValue = positionValue + parseInt(factor, 10);
+    } else {
+      // viewFactor is a ratio of the elementHeight
+      positionValue += elementHeight * factor;
+    }
+
+    return useBounds ? this.getPositionInBounds(positionValue, windowHeight) : this.roundNumber(positionValue, 2);
+  }
+
+  getPositionInBounds(positionValue, windowHeight) {
+    if (positionValue <= 0) return 0;
+
+    if (positionValue > this.scroll.height - windowHeight) {
+      return this.roundNumber(this.scroll.height - windowHeight, 2);
+    }
+
+    return this.roundNumber(positionValue, 2);
+  }
+
+  reset(elements, sections = []) {
+    this.elements = [];
+    this.sections = [];
+
+    for (let i = 0; i < elements.length; i++) {
+      let current = elements[i];
+      this.addElement(current, false);
+    }
+
+    if (sections.length > 0) {
+      this.sections = sections.map((section) => this.createSection(section));
+    }
+  }
+
+  disable() {
+    this.isEnabled = false;
+    this.scroll.enabled = false;
+  }
+
+  enable() {
+    this.isEnabled = true;
+    this.scroll.enabled = true;
+    this.run();
+  }
+
+  scrollTo(target, direct) {
+    this.scroll.setTarget(target, direct);
+  }
+
+  resize(target = false) {
+    if (this.scroll) this.scroll.resize(target);
+    this.reflow();
+  }
+
+  destroy() {
+    window.cancelAnimationFrame(this.raf);
+    this.raf = null;
+
+    this.elements.forEach((scrollElement) => {
+      if (scrollElement.parallax) {
+        scrollElement.parallax.forEach((parallax) => {
+          parallax.properties.forEach((property) => {
+            if (property === 'opacity') {
+              scrollElement.el.style.removeProperty('opacity');
             } else {
-              animation.done = false;
+              scrollElement.el.style.removeProperty('transform');
             }
-          } else {
-            let progress = (frame - animation.startValue) / (animation.endValue - animation.startValue);
-            let currentValue = animation.initialValue + (animation.finalValue - animation.initialValue) * progress;
-
-            this.computeClassicStyle(animation, currentValue);
-          }
-
-          // now we have array of properties we gonna parse them and apply them
-          // we are doing this one per animation not once per element
-          if (animation.properties.length > 0) this.setStyle(element.el, animation.properties);
-        }
+          });
+        });
       }
-    }
-  }
-
-  checkTriggerElements(frame) {
-    var index = 0;
-    for (; index < this.elementsTrigger.length; index++) {
-      var element = this.elementsTrigger[index];
-      var before = frame < element.startValue;
-
-      // add css transition
-      if (!element.isInit && element.trigger.finalValues) {
-        this.setStyle(element.el, element.transition, true);
-
-        element.isInit = true;
-      }
-
-      // So far we are not using after for the trigger
-      if (before) {
-        if (before && element.edge === -1) continue;
-
-        element.edge = before ? -1 : 1;
-
-        // if we are going back before trigger point
-        if (element.trigger.reset) {
-          for (var i = 0; i < element.initialStyles.length; i++) {
-            this.setStyle(element.el, element.initialStyles[i], true);
-          }
-
-          // if ( element.initialStyles.length === 0 ) {
-          //   for ( var i = 0; i < element.finalStyles.length; i++ ) {
-          //     element.el.style[ element.finalStyles[ i ].style[ 0 ] ] = null
-          //   }
-          // }
-
-          if (element.trigger.addClass) {
-            element.el.classList.remove(element.trigger.addClass);
-          }
-
-          element.triggered = false;
-        }
-      } else if (!element.triggered) {
-        element.edge = 0;
-        element.triggered = true;
-
-        for (var i = 0; i < element.finalStyles.length; i++) {
-          this.setStyle(element.el, element.finalStyles[i].style, true);
-        }
-
-        if (element.trigger.addClass) {
-          element.el.classList.add(element.trigger.addClass);
-        }
-
-        if (element.trigger.callback) {
-          element.trigger.callback();
-        }
-      }
-    }
-  }
-
-  // force reflow of the smoothvalue so it will go to it without easing
-  forceTransformStyle(value = -this.vars.current) {
-    // tfAnimation.smoothValue = tfAnimation.initialValue;
-    if (this.smoothSection.animation.transform[0].smoothValue !== undefined) {
-      this.smoothSection.animation.transform[0].smoothValue = value - this.smoothSection.animation.transform[0].smoothValue;
-    }
-  }
-
-  // OUTPUT
-  // animation : main animation ( example contains Opactiy + transform)
-  // tfAnimation : current transform line
-  // value : current value to apply
-  computeTransformStyle(animation, tfAnimation, value) {
-    // We calculate smooth value here if easing
-    // here means first fucking frame
-    if (tfAnimation.smoothValue === undefined) {
-      tfAnimation.smoothValue = tfAnimation.initialValue;
-      tfAnimation.smoothValue += value - tfAnimation.smoothValue;
-    } else {
-      tfAnimation.smoothValue += (value - tfAnimation.smoothValue) * tfAnimation.ease;
-    }
-
-    // specific round values for translate and scale
-    let roundedValue;
-    if (tfAnimation.transformType === 'translate3d') {
-      roundedValue = Math.round(tfAnimation.smoothValue * 100) / 100;
-    } else {
-      roundedValue = Math.round(tfAnimation.smoothValue * 1000) / 1000;
-    }
-
-    // TEST TO ROUND THE VALUE FOR LESS CALCULATION
-    // if(value - roundedValue < .1) roundedValue = value;
-
-    // checking if animation of transform value is done
-    // check if animation is done comparing the final value to the rounded one
-    // we need to round the final value too to be able to compate to roundedValue
-    if (Math.round(value * 1000) / 1000 === roundedValue) tfAnimation.done = true;
-    else tfAnimation.done = false;
-
-    // We check if there is allready a transform in the main animation
-    if (animation.properties) {
-      for (var i = 0; i < animation.properties.length; i++) {
-        // Case for transform
-        if (animation.properties[i].property === tfAnimation.transformType) {
-          animation.properties[i][tfAnimation.axis] = roundedValue;
-
-          return false;
-        }
-      }
-    }
-
-    // If there is no transform we create the object
-    var style = {
-      property: tfAnimation.transformType
-    };
-
-    style[tfAnimation.axis] = roundedValue;
-    style.isPercent = tfAnimation.valueIsPercent;
-
-    // push value to parent animation
-    animation.properties.push(style);
-  }
-
-  computeClassicStyle(animation, value) {
-    // We calculate smooth value here if easing
-    // here means first fucking frame so no easing to avoid blick/flash etc
-    if (animation.smoothValue === undefined) {
-      animation.smoothValue = animation.initialValue;
-      animation.smoothValue += value - animation.smoothValue;
-    } else {
-      animation.smoothValue += (value - animation.smoothValue) * animation.ease;
-    }
-
-    var roundedValue = Math.round(animation.smoothValue * 100) / 100;
-
-    var style = {
-      property: animation.property,
-      value: roundedValue
-    };
-
-    // check if animation is done comparing the final value to the rounded one
-    // we need to round the final value too to be able to compate to roundedValue
-    if (Math.round(value * 100) / 100 === roundedValue) animation.done = true;
-    else animation.done = false;
-
-    // save property into animation object
-    animation.properties.push(style);
-  }
-
-  /**
-   * Set Future Style
-   * Element is here to pass el of current Element
-   * Animation is current animation of element ( need to be precised because it can be several ones )
-   * Value is current scroll value ( need to be calculated before ) Here we just apply momemtum is ease < 1
-   */
-  // rounded number
-  // https://jsperf.com/parsefloat-tofixed-vs-math-round
-
-  setStyle(el, style, noParsing) {
-    if (!noParsing) var style = this.parseStyle(style);
-
-    if (style[0] === 'transform') {
-      el.style.transform = style[1];
-    } else if (style[0] === 'opacity') {
-      el.style.opacity = style[1];
-    } else if (style[0] === 'transition') {
-      el.style.transition = style[1];
-    }
-  }
-
-  // return an object containing all style
-  // ====>
-  // Example Object {transform: "translate3d(66.5px,66.5px,0) scale3d(1.06,1.06,1)"}
-  // ====>
-  parseStyle(properties) {
-    // could use regexpt and a pattern here but want to avoid replace inside raf
-    // so we chose switch and string concatenation
-    // also useful if we want to add more control here such as translate or translate3d... background color calculcation etc
-    // https://jsperf.com/string-concat-vs-regex-replace/2
-
-    // TODO Centralize Animations when severals animations and at the end set all style
-    // AND return all
-    var parsedStyle = [];
-    for (var i = 0; i < properties.length; i++) {
-      var currentProperty = properties[i];
-      const unit = currentProperty.isPercent ? '%' : 'px';
-      switch (currentProperty.property) {
-        case 'translate3d':
-          var x = currentProperty.x ? currentProperty.x + unit : 0;
-          var y = currentProperty.y ? currentProperty.y + unit : 0;
-          var z = currentProperty.z ? currentProperty.z + unit : 0;
-
-          // parsedStyle['transform'] ? parsedStyle['transform'] += ' translate3d('+ x +','+ y +','+ z +')' : parsedStyle["transform"] = 'translate3d('+ x +','+ y +','+ z +')';
-          if (parsedStyle[0] === 'transform') {
-            parsedStyle[1] += ' translate3d(' + x + ',' + y + ',' + z + ')';
-          } else {
-            parsedStyle[0] = 'transform';
-            parsedStyle[1] = 'translate3d(' + x + ',' + y + ',' + z + ')';
-          }
-
-          break;
-        case 'scale3d':
-          var x = currentProperty.x || currentProperty.both ? currentProperty.x || currentProperty.both : 1;
-          var y = currentProperty.y || currentProperty.both ? currentProperty.y || currentProperty.both : 1;
-          var z = currentProperty.z ? currentProperty.z + unit : 1;
-
-          // parsedStyle["transform"] ?  parsedStyle["transform"] += ' scale3d('+ x +','+ y +','+ z +')' : parsedStyle["transform"] = 'scale3d('+ x +','+ y +','+ z +')'
-          if (parsedStyle[0] === 'transform') {
-            parsedStyle[1] += ' scale3d(' + x + ',' + y + ',' + z + ')';
-          } else {
-            parsedStyle[0] = 'transform';
-            parsedStyle[1] = 'scale3d(' + x + ',' + y + ',' + z + ')';
-          }
-          break;
-        case 'rotate3d':
-          var x = currentProperty.x || currentProperty.both ? currentProperty.x || currentProperty.both : 1;
-          // var y = currentProperty.y || currentProperty.both ? currentProperty.y || currentProperty.both : 1;
-          // var z = currentProperty.z ? currentProperty.z+'px' : 1;
-
-          // parsedStyle["transform"] = parsedStyle["transform"] = 'rotate('+currentProperty.y+'deg)'
-          if (parsedStyle[0] === 'transform') {
-            parsedStyle[1] += 'rotate(' + x + 'deg)';
-          } else {
-            parsedStyle[0] = 'transform';
-            parsedStyle[1] = 'rotate(' + x + 'deg)';
-          }
-
-          break;
-        case 'opacity':
-          if (parsedStyle.length > 0) {
-            parsedStyle.push('opacity');
-            parsedStyle.push(currentProperty.value);
-          } else {
-            parsedStyle[0] = 'opacity';
-            parsedStyle[1] = currentProperty.value;
-          }
-          break;
-      }
-    }
-
-    return parsedStyle;
-  }
-
-  generateTransition(elem) {
-    var transition = [];
-    transition[0] = 'transition';
-    transition[1] = '';
-
-    // We decided to check final styles value to add proper properties ( also initial state can be set in CSS too)
-    for (var i = 0; i < elem.finalStyles.length; i++) {
-      var finalStyle = elem.finalStyles[i];
-      transition[1] += finalStyle.style[0] + ' ' + finalStyle.duration / 1000 + 's ' + finalStyle.easing + ' ' + finalStyle.delay / 1000 + 's';
-
-      if (i != elem.finalStyles.length - 1) {
-        transition[1] += ' , ';
-      }
-    }
-
-    return transition;
-  }
-
-  addEvents() {
-    this.handlers.debounce = this.debounce.bind(this);
-    this.handlers.resize = this.resize.bind(this);
-    this.handlers.run = this.run.bind(this);
-    this.handlers.scrollClass = () => this.addScrollingClassHandler();
-
-    if (this.setupListeners.scroll) window.addEventListener('scroll', this.handlers.debounce, { passive: true });
-    if (this.setupListeners.resize) window.addEventListener('resize', this.handlers.resize);
-  }
-
-  removeEvents() {
-    if (this.setupListeners.scroll) window.removeEventListener('scroll', this.handlers.debounce);
-    if (this.setupListeners.resize) window.removeEventListener('resize', this.handlers.resize);
-
-    if (this.setupListeners.update) window.cancelAnimationFrame(this.raf);
-
-    this.handlers = {
-      run: null,
-      debounce: null,
-      resize: null
-    };
-  }
-
-  removeFakeScrollHeight() {
-    this.fakeDiv.parentNode.removeChild(this.fakeDiv);
-    this.fakeDiv = null;
-
-    this.smoothSection.el.style.position = 'relative';
-    this.smoothSection.el.style.width = 'auto';
-    this.smoothSection.el.style.transform = '';
-  }
-
-  addFakeScrollHeight(value) {
-    if (this.fakeDiv === null) {
-      this.fakeDiv = document.createElement('div');
-      this.fakeDiv.className = 'smooth-fake-scroll';
-      this.fakeDiv.style.height = value + 'px';
-
-      this.smoothSection.el.parentNode.insertBefore(this.fakeDiv, this.smoothSection.el.nextSibling);
-    } else {
-      this.fakeDiv.style.height = value + 'px';
-    }
-
-    this.smoothSection.el.style.position = 'fixed';
-    this.smoothSection.el.style.width = '100%';
-  }
-
-  addFakeHeight(value) {
-    this.dom.style.height = value + 'px';
-  }
-
-  removeFakeHeight() {
-    this.dom.style.height = 'auto';
-  }
-  scrollTo(value) {
-    // TODO ADD COOL SCROLLING AND EASING
-  }
-
-  getOffset(el) {
-    const bodyRect = this.dom.getBoundingClientRect();
-    const elemRect = el.getBoundingClientRect();
-    const offset = elemRect.top - bodyRect.top;
-
-    return Math.floor(offset);
-
-    // var yPos = 0
-
-    // while ( el ) {
-    //   if ( el.tagName === 'BODY' ) {
-    //     // deal with browser quirks with body/window/document and page scroll
-    //     var yScroll = el.scrollTop || document.documentElement.scrollTop
-    //     yPos += ( el.offsetTop - yScroll + el.clientTop )
-    //   }
-    //   else {
-    //     // for all other non-BODY elements
-    //     yPos += ( el.offsetTop - el.scrollTop + el.clientTop )
-    //   }
-    //   el = el.offsetParent
-    // }
-
-    // // return offset
-    // return yPos
-
-    // return {
-    // 	x: left + scrollX,
-    // 	y: top + scrollY
-    // };
-  }
-
-  // here we receive the actual DOM element and the animation
-  getPositionStart(el, animation) {
-    if (animation.start === 'in-viewport') {
-      // be sure we remove old style
-      el.style.webkitTransform = null;
-      el.style.mozTransform = null;
-      el.style.msTransform = null;
-      el.style.opacity = null;
-
-      var offset = this.getOffset(el);
-      var elementHeight = el.offsetHeight;
-      var windowHeight = this.vars.height;
-
-      var factor = animation.viewFactorStart ? animation.viewFactorStart : 0;
-
-      var positionTop;
-      if (isNaN(factor) && factor.indexOf('px') !== -1) {
-        positionTop = offset - windowHeight + parseInt(animation.viewFactorStart, 10);
-      } else {
-        positionTop = offset - windowHeight + elementHeight * factor;
-      }
-
-      return positionTop > 0 ? positionTop.toFixed(2) : 0;
-    }
-    // this comes from parent
-    return Math.round(animation.start);
-  }
-
-  getPositionEnd(el, animation) {
-    if (animation.end === 'in-viewport') {
-      // be sure we remove old style
-      el.style.webkitTransform = null;
-      el.style.mozTransform = null;
-      el.style.msTransform = null;
-      el.style.opacity = null;
-
-      var offset = this.getOffset(el);
-      var elementHeight = el.offsetHeight;
-      var windowHeight = this.vars.height;
-
-      var factor = animation.viewFactorEnd ? animation.viewFactorEnd : 0;
-
-      var positionBottom;
-      if (isNaN(factor) && factor.indexOf('px') !== -1) {
-        positionBottom = offset - windowHeight + parseInt(animation.viewFactorEnd, 10);
-      } else {
-        positionBottom = offset - windowHeight + elementHeight * factor;
-      }
-
-      return positionBottom > this.vars.documentHeight - this.vars.height ? (this.vars.documentHeight - this.vars.height).toFixed(2) : positionBottom.toFixed(2);
-    } else if (animation.end === 'out-viewport') {
-      // be sure we remove old style
-      el.style.webkitTransform = null;
-      el.style.mozTransform = null;
-      el.style.msTransform = null;
-      el.style.oTransform = null;
-      el.style.opacity = null;
-
-      var offset = this.getOffset(el);
-      var elementHeight = el.offsetHeight;
-
-      var factor = animation.viewFactorEnd ? animation.viewFactorEnd : 0;
-      var positionBottom = offset + elementHeight - elementHeight * factor;
-      return positionBottom > this.vars.documentHeight - this.vars.height ? (this.vars.documentHeight - this.vars.height).toFixed(2) : positionBottom.toFixed(2);
-    }
-    // this comes from parent
-    return Math.round(animation.end);
-  }
-
-  findStart(array) {
-    var min = Number.MAX_VALUE,
-      a = array.length,
-      counter;
-
-    for (counter = 0; counter < a; counter++) {
-      if (array[counter].startValue < min) {
-        min = array[counter].startValue;
-      }
-    }
-
-    return min;
-  }
-
-  findEnd(array) {
-    var max = 0,
-      a = array.length,
-      counter;
-
-    for (counter = 0; counter < a; counter++) {
-      if (array[counter].endValue > max) {
-        max = array[counter].endValue;
-      }
-    }
-
-    return max;
+    });
+    if (this.scroll) this.scroll.destroy();
   }
 
   roundNumber(number, decimals = 2) {
     // NOT PRETTY BUT EFFICIENT
-    var divider;
+    let divider;
     if (decimals === 1) divider = 10;
     if (decimals === 2) divider = 100;
     if (decimals === 3) divider = 1000;
@@ -779,141 +748,22 @@ class Smooth {
     return Math.round(number * divider) / divider;
   }
 
-  getDocumentHeight() {
-    var body = this.dom,
-      html = document.documentElement;
-
-    return Math.max(body.scrollHeight, body.offsetHeight, html.clientHeight, html.scrollHeight, html.offsetHeight);
+  isObject(value) {
+    return value && typeof value === 'object' && value.constructor === Object;
   }
 
-  // Here we check all element and set their data correctly
-  // Mostly usefull to parse viewport relative timeline
-  reflow() {
-    var end = 0;
-
-    for (var i = 0; i < this.elementsParallaxe.length; i++) {
-      var element = this.elementsParallaxe[i];
-
-      for (var j = 0; j < element.animations.length; j++) {
-        var animation = element.animations[j];
-
-        // now we check for transform animations array
-        if (animation.transform) {
-          for (var l = 0; l < animation.transform.length; l++) {
-            // start for each transform of the array
-            animation.transform[l].startValue = this.getPositionStart(element.el, animation.transform[l]);
-            animation.transform[l].endValue = this.getPositionEnd(element.el, animation.transform[l]);
-          }
-        } else {
-          animation.startValue = this.getPositionStart(element.el, animation);
-          animation.endValue = this.getPositionEnd(element.el, animation);
-        }
-
-        // we build global sequence if there is a timeline of transform
-        if (animation.transform) this.setTransformSequence(animation);
-
-        if (animation.endValue > end) end = animation.endValue;
+  getVisibleSections() {
+    const y = this.scroll.target;
+    const visibleSections = [];
+    this.sections.forEach((section) => {
+      const { startValue, endValue } = section.section;
+      if (y >= startValue && y <= endValue) {
+        visibleSections.push(section);
       }
-    }
+    });
 
-    for (var k = 0; k < this.elementsTrigger.length; k++) {
-      let element = this.elementsTrigger[k];
-
-      // here we convert viewport to actual scrolling value if needed
-
-      // TODO IMPROVE THIS FOR TRIGGER
-      element.startValue = this.getPositionStart(element.el, element.trigger);
-
-      // we need also to define initial and final values here
-      // since we just need to applicate them when we reache trigger Y Value
-
-      // Can be optional if set in CSS
-      element.initialStyles = [];
-
-      if (element.trigger.initialValues) {
-        for (let i = 0; i < element.trigger.initialValues.length; i++) {
-          let value = element.trigger.initialValues[i];
-          element.initialStyles.push(this.parseStyle(value.animation));
-        }
-      }
-
-      element.finalStyles = [];
-
-      if (element.trigger.finalValues) {
-        for (let i = 0; i < element.trigger.finalValues.length; i++) {
-          let value = element.trigger.finalValues[i];
-
-          let animationObject = {
-            delay: value.delay,
-            duration: value.duration,
-            easing: value.easing,
-            style: this.parseStyle(value.animation)
-          };
-          element.finalStyles.push(animationObject);
-        }
-      }
-
-      element.transition = this.generateTransition(element);
-
-      //set initial style that we just erased
-      if (!element.reset && !element.triggered) {
-        for (var i = 0; i < element.initialStyles.length; i++) {
-          this.setStyle(element.el, element.initialStyles[i], true);
-        }
-      }
-
-      // reset egde so initial set style get called again if needed
-      element.edge = null;
-    }
-
-    // check to initiate first state if needed
-    if (this.elementsTrigger.length > 0) this.checkTriggerElements(this.vars.current);
-
-    // Now we computed all start and end of each animation
-    // we checked if need to add more scroll to be sure that we can display them all.
-    if (this.smoothContainer) {
-      var prop = 'height';
-      this.vars.bounding = this.smoothSection.el.getBoundingClientRect().height;
-      this.addFakeScrollHeight(this.vars.bounding);
-    }
-
-    if (end > this.vars.documentHeight) this.addFakeHeight(end);
-  }
-
-  resize() {
-    this.vars.height = window.innerHeight;
-    this.vars.width = window.innerWidth;
-    this.vars.documentHeight = this.getDocumentHeight();
-    this.reflow();
-  }
-
-  enable() {
-    this.isDisabled = false;
-    this.forceTransformStyle();
-    this.run();
-    this.resize();
-  }
-
-  disable() {
-    if (this.fakeDiv) {
-      this.fakeDiv.style.height = 0 + 'px';
-    }
-    this.isDisabled = true;
-  }
-
-  destroy() {
-    clearTimeout(this.vars.timer);
-
-    if (this.fakeDiv) this.removeFakeScrollHeight();
-    this.removeFakeHeight();
-    this.removeEvents();
-
-    this.elementsTrigger.length = 0;
-    this.elementsTrigger = [];
-
-    this.elementsParallaxe.length = 0;
-    this.elementsParallaxe = [];
+    return visibleSections;
   }
 }
 
-module.exports = Smooth;
+export default Smooth;
