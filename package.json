@@ -13,7 +13,8 @@
   "scripts": {
     "build": "webpack --config webpack.prod.js",
     "start": "webpack serve --config webpack.dev.js",
-    "test": "mocha --compilers js:babel-core/register --colors -w ./test/*.spec.js"
+    "test": "mocha --compilers js:babel-core/register --colors -w ./test/*.spec.js",
+    "publish": "npm run build && npm publish --access public"
   },
   "devDependencies": {
     "@babel/core": "^7.12.3",

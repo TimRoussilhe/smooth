@@ -11,7 +11,6 @@ const DEFAULTS = {
   useVirtualScroll: true,
   smoothContainer: true,
   direction: 'vertical',
-  noTransform: false,
   infinite: false,
 };
 
@@ -38,13 +37,12 @@ class Scroll {
       props.wheelDeltaMultiplier !== undefined ? props.wheelDeltaMultiplier : DEFAULTS.wheelDeltaMultiplier;
     this.maxWheel = props.maxWheel !== undefined ? props.maxWheel : DEFAULTS.maxWheel;
 
+    //TODO: Review autoUpdate logic here and within Smooth
     this.autoUpdate = props.autoUpdate !== undefined ? props.autoUpdate : DEFAULTS.autoUpdate;
     this.useVirtualScroll = props.useVirtualScroll !== undefined ? props.useVirtualScroll : DEFAULTS.useVirtualScroll;
     this.smoothContainer = props.smoothContainer !== undefined ? props.smoothContainer : DEFAULTS.smoothContainer;
 
     this.direction = props.direction !== undefined ? props.direction : DEFAULTS.direction;
-
-    this.noTransform = props.noTransform !== undefined ? props.noTransform : DEFAULTS.noTransform;
     this.infinite = props.infinite !== undefined ? props.infinite : DEFAULTS.infinite;
 
     this.isScrollEnabled = true;
@@ -223,22 +221,16 @@ class Scroll {
     }
   }
 
-  updateScrollElement(additionalTransform) {
-    if (!this.noTransform) {
-      let style;
+  updateScrollElement() {
+    let style;
 
-      if (this.direction === 'horizontal') {
-        style = 'translate3d(' + -this.y + 'px, 0px, 0)';
-      } else {
-        style = 'translate3d(0px, ' + -this.y + 'px,0)';
-      }
-
-      if (additionalTransform) {
-        style += ' ' + additionalTransform;
-      }
-
-      this.scrollElement.style.transform = style;
+    if (this.direction === 'horizontal') {
+      style = 'translate3d(' + -this.y + 'px, 0px, 0)';
+    } else {
+      style = 'translate3d(0px, ' + -this.y + 'px,0)';
     }
+
+    this.scrollElement.style.transform = style;
   }
 
   applyConstrains() {
