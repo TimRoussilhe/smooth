@@ -1,4 +1,5 @@
 import VirtualScroll from './virtualScroll';
+import { supportsPassiveEvents } from './utils';
 
 const DEFAULTS = {
   easing: 0.5,
@@ -80,7 +81,8 @@ class Scroll {
       this.vs.bind();
     } else {
       this.scrollHandler = (e) => this.updateTargetNativeScroll(e);
-      window.addEventListener('scroll', this.scrollHandler, { passive: true });
+      const passive = supportsPassiveEvents();
+      window.addEventListener('scroll', this.scrollHandler, { passive });
     }
 
     if (this.autoUpdate) this.update();
