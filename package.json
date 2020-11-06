@@ -1,6 +1,6 @@
 {
   "name": "@timroussilhe/smooth",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Smooth plugin that allow all basic scroll interactions",
   "main": "dist/Smooth.bundle.js",
   "repository": {
