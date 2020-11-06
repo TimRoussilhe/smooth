@@ -1,5 +1,5 @@
 {
-  "name": "Smooth",
+  "name": "@timroussilhe/smooth",
   "version": "0.2.0",
   "description": "Smooth plugin that allow all basic scroll interactions",
   "main": "dist/Smooth.bundle.js",
@@ -9,6 +9,7 @@
   },
   "author": "Tim Roussilhe <timothee.roussilhe@gmail.com>",
   "license": "MIT",
+  "private": false,
   "scripts": {
     "build": "webpack --config webpack.prod.js",
     "start": "webpack serve --config webpack.dev.js",
